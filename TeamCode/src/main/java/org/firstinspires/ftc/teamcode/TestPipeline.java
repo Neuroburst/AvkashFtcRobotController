@@ -15,6 +15,15 @@ import org.openftc.easyopencv.OpenCvPipeline;
 import java.util.List;
 
 public class TestPipeline extends OpenCvPipeline {
+    String[] colorNames = {"Red", "Yellow", "Blue"};
+    int[] colorHueMax = {179, 110, 20};
+    int[] colorHueMin = {116, 100, 0};
+
+    int[] colorSatMax = {255, 255, 255};
+    int[] colorSatMin = {100, 100, 0};
+
+    int[] colorValMax = {255, 255, 255};
+    int[] colorValMin = {100, 100, 0};
 
     @Override
     public void init(Mat input) {
@@ -67,12 +76,17 @@ public class TestPipeline extends OpenCvPipeline {
         Core.bitwise_and(input, sat, input);
         //Core.bitwise_and(inputHSV, sat, inputHSV);
 
-        // Now extract the individual colors
+
+
+//        // Now extract the individual colors
 //        Mat test = new Mat();
-//        Core.inRange(inputHSV, new Scalar(100, 0, 0), new Scalar(179, 255, 255), test);
+//        Core.inRange(inputHSV, new Scalar(0, 100, 100), new Scalar(20, 255, 255), test);
+//        Imgproc.cvtColor(test, test, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+//
 //        Core.bitwise_and(test, sat, test);
 //        Mat blue = new Mat();
 //        Core.inRange(inputHSV, new Scalar(0, 0, 0), new Scalar(20, 255, 255), blue);
+//        Imgproc.cvtColor(blue, blue, Imgproc.COLOR_GRAY2BGR); // Convert Mask
 //        Core.bitwise_and(blue, sat, blue);
 
         // Next mask out
@@ -118,7 +132,7 @@ public class TestPipeline extends OpenCvPipeline {
 ////                        input.rows()*(3f/4f)),
 ////                new Scalar(0, 255, 0), 4);
 
-        return input; // Return the image that will be displayed in the viewport
+        return test; // Return the image that will be displayed in the viewport
     }
 
     @Override

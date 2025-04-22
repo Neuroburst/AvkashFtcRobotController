@@ -16,14 +16,10 @@ import java.util.List;
 
 public class TestPipeline extends OpenCvPipeline {
     String[] colorNames = {"Red", "Yellow", "Blue"};
-    int[] colorHueMax = {179, 110, 20};
-    int[] colorHueMin = {116, 100, 0};
+    Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
 
-    int[] colorSatMax = {255, 255, 255};
-    int[] colorSatMin = {100, 100, 0};
-
-    int[] colorValMax = {255, 255, 255};
-    int[] colorValMin = {100, 100, 0};
+    Scalar[] colorMax = {new Scalar(179, 255, 255), new Scalar(110, 255, 255), new Scalar(20, 255, 255)};
+    Scalar[] colorMin = {new Scalar(116, 100, 100), new Scalar(100, 100, 100), new Scalar(0, 0, 0)};
 
     @Override
     public void init(Mat input) {
@@ -32,7 +28,7 @@ public class TestPipeline extends OpenCvPipeline {
 
     @Override
     public Mat processFrame(Mat input) {
-        Mat original = input.clone();
+        //Mat original = input.clone();
         //Imgproc.blur(input, input, new Size(5, 5));
 
         //Imgproc.Laplacian(input, input, 31);//CvType.CV_32F);
@@ -99,28 +95,45 @@ public class TestPipeline extends OpenCvPipeline {
         // Finally convert it back
         Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2BGR);
 
+        Mat output = new Mat();
+        // Create blank mat
+        Core.inRange(input, new Scalar(255,255,255), new Scalar(0,0,0), output);
 
+        // Configure params
         SimpleBlobDetector_Params params = new SimpleBlobDetector_Params();
         params.set_collectContours(true);
         params.set_filterByColor(false);
         params.set_minThreshold(10);
         params.set_maxThreshold(255);
-        params.set_filterByArea(false);
+        params.set_filterByArea(true);
+        params.set_minArea(50);
+        params.set_maxArea(100000);
         params.set_filterByCircularity(false);
         params.set_filterByConvexity(false);
         params.set_filterByInertia(false);
         params.set_minDistBetweenBlobs(50.0f);
 
-        SimpleBlobDetector detector = SimpleBlobDetector.create(params);
-        MatOfKeyPoint keyPoints = new MatOfKeyPoint();
-        detector.detect(input, keyPoints);
-        List<MatOfPoint> contours = detector.getBlobContours();
+        int idx = 0;
+        for (String color : colorNames)
+        {
+            Mat colorMask = new Mat();
+            Core.inRange(inputHSV, colorMin[idx], colorMax[idx], colorMask);
+            Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+            Core.bitwise_and(colorMask, sat, colorMask);
 
-        Features2d.drawKeypoints(input, keyPoints, input, new Scalar(0, 0, 255));
-        Imgproc.polylines(input, contours, true, new Scalar(255,0,0));
+            SimpleBlobDetector detector = SimpleBlobDetector.create(params);
+            MatOfKeyPoint keyPoints = new MatOfKeyPoint();
+            detector.detect(colorMask, keyPoints);
+            List<MatOfPoint> contours = detector.getBlobContours();
+
+            Features2d.drawKeypoints(output, keyPoints, output, colorStyles[idx]);
+            Imgproc.polylines(output, contours, true, colorStyles[idx]);
+
+            idx++;
+        }
 
 
-        Imgproc.putText(input, Integer.toString(contours.size()) + " Blobs", new Point(0,20), 0, 0.75, new Scalar(255,0,0), 2);
+        //Imgproc.putText(input, Integer.toString(contours.size()) + " Blobs", new Point(0,20), 0, 0.75, new Scalar(255,0,0), 2);
 
 ////        Imgproc.rectangle(
 ////                input,
@@ -132,7 +145,7 @@ public class TestPipeline extends OpenCvPipeline {
 ////                        input.rows()*(3f/4f)),
 ////                new Scalar(0, 255, 0), 4);
 
-        return test; // Return the image that will be displayed in the viewport
+        return output; // Return the image that will be displayed in the viewport
     }
 
     @Override

@@ -10,8 +10,9 @@ import org.opencv.features2d.SimpleBlobDetector_Params;
 import org.opencv.imgproc.Imgproc;
 import org.openftc.easyopencv.OpenCvPipeline;
 
-
 import java.util.List;
+
+// TODO: add rects for items, and fix color stuff
 
 public class TestPipeline extends OpenCvPipeline {
     String[] colorNames = {"Red", "Yellow", "Blue"};
@@ -28,10 +29,27 @@ public class TestPipeline extends OpenCvPipeline {
     @Override
     public Mat processFrame(Mat input) {
         // Convert colors otherwise it errors
-        Imgproc.blur(input, input, new Size(2,2));
         Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2BGR);
         Imgproc.cvtColor(input, input, Imgproc.COLOR_BGR2RGB);
+
+        // Blur it
+        Imgproc.blur(input, input, new Size(2,2));
         Mat frame = input.clone();
+
+        // Cut out edges of objects using the difference of Gaussians filter
+        Mat DoG = new Mat();
+        Mat subInput3 = new Mat();
+        Imgproc.GaussianBlur(input, subInput3, new Size(3, 3), 0);
+        Mat subInput4 = new Mat();
+        Imgproc.GaussianBlur(input, subInput4, new Size(5, 5), 0);
+        Core.subtract(subInput3, subInput4, DoG);
+
+        Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_BGR2GRAY); // Convert Mask
+        Core.inRange(DoG, new Scalar(1, 1, 1), new Scalar(255, 255, 255), DoG);
+        Core.bitwise_not(DoG, DoG);
+        Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+        Core.bitwise_and(DoG, frame, frame);
+        //
 
         // Create HSV version
         Mat inputHSV = new Mat();
@@ -44,9 +62,9 @@ public class TestPipeline extends OpenCvPipeline {
         Core.bitwise_and(frame, sat, frame);
 
 
-        // Create blank output mat
+        // Create blank output matrix
         Mat debugOutput = new Mat();
-        Core.inRange(frame, new Scalar(255,255,255), new Scalar(0,0,0), debugOutput);
+        debugOutput = Mat.zeros(frame.rows(), frame.cols(), input.type());
 
         String outputText = "";
 

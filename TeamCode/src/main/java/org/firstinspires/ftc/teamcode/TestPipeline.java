@@ -39,21 +39,6 @@ public class TestPipeline extends OpenCvPipeline {
         Mat frame = input.clone();
         Mat output = input.clone();
 
-        // Cut out edges of objects using the difference of Gaussians filter
-//        Mat DoG = new Mat();
-//        Mat subInput3 = new Mat();
-//        Imgproc.GaussianBlur(input, subInput3, new Size(3, 3), 0);
-//        Mat subInput4 = new Mat();
-//        Imgproc.GaussianBlur(input, subInput4, new Size(5, 5), 0);
-//        Core.subtract(subInput3, subInput4, DoG);
-//
-//        Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_BGR2GRAY); // Convert Mask
-//        Core.inRange(DoG, new Scalar(1, 1, 1), new Scalar(255, 255, 255), DoG);
-//        Core.bitwise_not(DoG, DoG);
-//        Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_GRAY2BGR); // Convert Mask
-//        Core.bitwise_and(DoG, frame, frame);
-        //
-
         // Create HSV version
         Mat inputHSV = new Mat();
         Imgproc.cvtColor(frame, inputHSV, Imgproc.COLOR_BGR2HSV);
@@ -63,7 +48,6 @@ public class TestPipeline extends OpenCvPipeline {
         Core.inRange(inputHSV, new Scalar(0, 100, 45), new Scalar(179, 255, 255), sat);
         Imgproc.cvtColor(sat, sat, Imgproc.COLOR_GRAY2BGR); // Convert Mask
         Core.bitwise_and(frame, sat, frame);
-
 
         // Create blank output matrix
         Mat debugOutput = Mat.zeros(frame.rows(), frame.cols(), input.type());
@@ -85,10 +69,32 @@ public class TestPipeline extends OpenCvPipeline {
         int idx = 0;
         for (String color : colorNames)
         {
+            // Get image of just that color
             Mat colorMask = new Mat();
             Core.inRange(inputHSV, colorMin[idx], colorMax[idx], colorMask);
             Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_GRAY2BGR); // Convert Mask
             Core.bitwise_and(colorMask, sat, colorMask);
+
+//            Mat colorMaskedFrame = new Mat();
+//            Core.bitwise_and(frame, colorMask, colorMaskedFrame);
+//            // Cut out edges of objects using the difference of Gaussians filter
+//            Mat DoG = new Mat();
+//            Mat subInput3 = new Mat();
+//            Imgproc.GaussianBlur(colorMaskedFrame, subInput3, new Size(1, 1), 0);
+//            Mat subInput4 = new Mat();
+//            Imgproc.GaussianBlur(colorMaskedFrame, subInput4, new Size(3, 3), 0);
+//            Core.subtract(subInput3, subInput4, DoG);
+//
+//            Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_BGR2GRAY); // Convert Mask
+//            Core.inRange(DoG, new Scalar(5, 5, 5), new Scalar(255, 255, 255), DoG);
+//            Core.bitwise_not(DoG, DoG);
+//            Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+//            Core.bitwise_and(DoG, colorMask, colorMask);
+//
+//            if (color == "Yeellow"){
+//                return colorMask;
+//            }
+
             SimpleBlobDetector detector = SimpleBlobDetector.create(params);
             MatOfKeyPoint keyPoints = new MatOfKeyPoint();
             detector.detect(colorMask, keyPoints);

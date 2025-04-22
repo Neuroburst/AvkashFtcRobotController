@@ -24,19 +24,67 @@ public class TestPipeline extends OpenCvPipeline {
     @Override
     public Mat processFrame(Mat input) {
         Mat original = input.clone();
+        //Imgproc.blur(input, input, new Size(5, 5));
 
-        Imgproc.blur(input, input, new Size(5, 5));
+        //Imgproc.Laplacian(input, input, 31);//CvType.CV_32F);
+
+
+//        Mat subInput1 = new Mat();
+//        Imgproc.GaussianBlur(original, subInput1, new Size(1, 1), 0);
+//        Mat subInput2 = new Mat();
+//        Imgproc.GaussianBlur(original, subInput2, new Size(51, 51), 0);
+//        Core.subtract(subInput1, subInput2, input);
+
+//        Mat DoH = new Mat();
+//        Imgproc.GaussianBlur(input, DoH, new Size(5, 5), 0);
+//        Mat Dxx = new Mat();
+//        Imgproc.Sobel(DoH, Dxx, CvType.CV_64F, 2, 0);
+//        Mat Dyy = new Mat();
+//        Imgproc.Sobel(DoH, Dyy, CvType.CV_64F, 0, 2);
+//        Mat Dxy = new Mat();
+//        Imgproc.Sobel(DoH, Dxy, CvType.CV_64F, 1, 1);
+//        Mat Mul = new Mat();
+//        Core.multiply(Dxx, Dyy, Mul);
+//        Core.multiply(Dxy, Dxy, Dxy);
+//        Core.subtract(Mul, Dxy, input);
+
+//        Mat subInput3 = new Mat();
+//        Imgproc.GaussianBlur(original, subInput3, new Size(5, 5), 0);
+//        Mat subInput4 = new Mat();
+//        Imgproc.GaussianBlur(original, subInput4, new Size(11, 11), 0);
+//        Core.subtract(subInput3, subInput4, input);
+        //Mat original = input.clone();
+        Mat inputHSV = new Mat();
+        Imgproc.cvtColor(input, inputHSV, Imgproc.COLOR_BGR2HSV);
+
+
         Imgproc.cvtColor(input, input, Imgproc.COLOR_BGR2RGB);
 
-        Mat mask = new Mat();
-        Core.inRange(input, new Scalar(10, 10, 10), new Scalar(255, 255, 255), mask);
-        // Convert Mask
-        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_GRAY2BGR);
+        // First filter out everything that isn't very saturated
+        Mat sat = new Mat();
+        Core.inRange(inputHSV, new Scalar(0, 100, 45), new Scalar(179, 255, 255), sat);
+        Imgproc.cvtColor(sat, sat, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+        Core.bitwise_and(input, sat, input);
+        //Core.bitwise_and(inputHSV, sat, inputHSV);
 
-        Core.bitwise_not(mask, mask);
-        Core.bitwise_and(input, mask, input);
+        // Now extract the individual colors
+//        Mat test = new Mat();
+//        Core.inRange(inputHSV, new Scalar(100, 0, 0), new Scalar(179, 255, 255), test);
+//        Core.bitwise_and(test, sat, test);
+//        Mat blue = new Mat();
+//        Core.inRange(inputHSV, new Scalar(0, 0, 0), new Scalar(20, 255, 255), blue);
+//        Core.bitwise_and(blue, sat, blue);
 
+        // Next mask out
+//        Mat mask = new Mat();
+//        Core.inRange(input, new Scalar(10, 10, 10), new Scalar(255, 255, 255), mask);
+//        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+//        Core.bitwise_not(mask, mask);
+//        Core.bitwise_and(input, mask, input);
+
+        // Finally convert it back
         Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2BGR);
+
 
         SimpleBlobDetector_Params params = new SimpleBlobDetector_Params();
         params.set_collectContours(true);
@@ -55,7 +103,6 @@ public class TestPipeline extends OpenCvPipeline {
         List<MatOfPoint> contours = detector.getBlobContours();
 
         Features2d.drawKeypoints(input, keyPoints, input, new Scalar(0, 0, 255));
-
         Imgproc.polylines(input, contours, true, new Scalar(255,0,0));
 
 

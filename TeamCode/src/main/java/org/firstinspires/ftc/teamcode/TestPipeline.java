@@ -2,33 +2,25 @@ package org.firstinspires.ftc.teamcode;
 
 import org.opencv.core.*;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.Scalar;
-import org.opencv.features2d.Features2d;
-import org.opencv.features2d.SimpleBlobDetector;
-import org.opencv.features2d.SimpleBlobDetector_Params;
 import org.opencv.imgproc.Imgproc;
 import org.openftc.easyopencv.OpenCvPipeline;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.ListIterator;
 
 // TODO: need to fix separate objects combining
 
 public class TestPipeline extends OpenCvPipeline {
     public final Boolean debugOverlay = true;
     public final Boolean labels = true;
-    // Attempts to correct for object combing by finding the edges of objects and eroding them, but can result in loss of small objects
-    public final Boolean objectCombiningMitigation = false;
-
+    public final double erodeThreshold = 4000;
+    // Color info
     String[] colorNames = {"Red", "Yellow", "Blue"};
     Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
-
+    // Color Thresholds
     Scalar[] colorMax = {new Scalar(179, 255, 255), new Scalar(110, 255, 255), new Scalar(20, 255, 255)};
-    Scalar[] colorMin = {new Scalar(116, 100, 100), new Scalar(90, 110, 100), new Scalar(0, 50, 0)}; //110 100 for yellow
-
-    int[] colorThresh = {0, 0, 0};
+    Scalar[] colorMin = {new Scalar(116, 100, 100), new Scalar(90, 110, 100), new Scalar(0, 50, 0)};
 
     String outputText = "";
 
@@ -44,118 +36,115 @@ public class TestPipeline extends OpenCvPipeline {
         Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2BGR);
         Imgproc.cvtColor(input, input, Imgproc.COLOR_BGR2RGB);
 
-        // Blur it
+        // Create the frame and output
         //Imgproc.blur(input, input, new Size(2,2));
         Mat frame = input.clone();
         Mat output = input.clone();
-
+        // Create blank debug output matrix
+        Mat debugOutput = Mat.zeros(frame.size(), input.type());
         // Create HSV version
         Mat inputHSV = new Mat();
         Imgproc.cvtColor(frame, inputHSV, Imgproc.COLOR_BGR2HSV);
 
-        // Filter out everything that isn't very saturated
-//        Mat sat = new Mat();
-//        Core.inRange(inputHSV, new Scalar(0, 100, 45), new Scalar(179, 255, 255), sat);
-//        Imgproc.cvtColor(sat, sat, Imgproc.COLOR_GRAY2BGR); // Convert Mask
-//        Core.bitwise_and(frame, sat, frame);
 
-        // Create blank output matrix
-        Mat debugOutput = Mat.zeros(frame.rows(), frame.cols(), input.type());
-
-        // Configure parameters
-        SimpleBlobDetector_Params params = new SimpleBlobDetector_Params();
-        params.set_collectContours(true);
-        params.set_filterByColor(false);
-        params.set_minThreshold(10);
-        params.set_maxThreshold(255);
-        params.set_filterByArea(true);
-        params.set_minArea(50);
-        params.set_maxArea(100000);
-        params.set_filterByCircularity(false);
-        params.set_filterByConvexity(false);
-//        params.set_minConvexity(0.6f);
-//        params.set_maxConvexity(1.0f);
-        params.set_filterByInertia(false);
-        params.set_minDistBetweenBlobs(1f);
-
-        int idx = 0;
+        // Individually process each color
+        int colorIdx = 0;
         for (String color : colorNames)
         {
             // Get image of just that color
             Mat colorMask = new Mat();
-            Core.inRange(inputHSV, colorMin[idx], colorMax[idx], colorMask);
-            Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_GRAY2BGR); // Convert Mask
-            //Core.bitwise_and(colorMask, sat, colorMask);
+            Core.inRange(inputHSV, colorMin[colorIdx], colorMax[colorIdx], colorMask);
+            Mat originalColorMask = colorMask.clone();
+            Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_GRAY2BGR); // Convert Mask to AND it
+            Core.bitwise_and(frame, colorMask, colorMask);
 
-            // Create a color masked frame
-            Mat colorMaskedFrame = new Mat();
-            Core.bitwise_and(frame, colorMask, colorMaskedFrame);
-            ////Imgproc.equalizeHist(colorMaskedFrame, colorMaskedFrame);
-            //Imgproc.blur(colorMaskedFrame, colorMaskedFrame, new Size(5,5));
-            Imgproc.cvtColor(colorMaskedFrame, colorMaskedFrame, Imgproc.COLOR_BGR2GRAY); // Convert Mask
+            ///Imgproc.equalizeHist(colorMaskedFrame, colorMaskedFrame);
+            ///Imgproc.blur(colorMaskedFrame, colorMaskedFrame, new Size(5,5));
 
-//            if (objectCombiningMitigation)
-//            {
-//                // Cut out edges of objects using the difference of Gaussian filter
-//                Mat DoG = new Mat();
-//                Mat subInput3 = new Mat();
-//                Imgproc.GaussianBlur(colorMaskedFrame, subInput3, new Size(1, 1), 0);
-//                Mat subInput4 = new Mat();
-//                Imgproc.GaussianBlur(colorMaskedFrame, subInput4, new Size(3, 3), 0);
-//                Core.subtract(subInput3, subInput4, DoG);
-//
-//                Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_BGR2GRAY); // Convert Mask
-//                Core.inRange(DoG, new Scalar(5, 5, 5), new Scalar(255, 255, 255), DoG);
-//                Core.bitwise_not(DoG, DoG);
-//                Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_GRAY2BGR); // Convert Mask
-//                Core.bitwise_and(DoG, colorMask, colorMask);
-//
-//            }
-            Imgproc.adaptiveThreshold(colorMaskedFrame, colorMaskedFrame, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 85, 15);
-            Imgproc.cvtColor(colorMaskedFrame, colorMaskedFrame, Imgproc.COLOR_GRAY2BGR); // Convert Mask
-            // Remove slime that's on the outside
-            Core.bitwise_and(colorMaskedFrame, colorMask, colorMaskedFrame);
+            Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_BGR2GRAY); // Get grayscale version
+            // Cut out darker areas using adaptive threshold
+            Imgproc.adaptiveThreshold(colorMask, colorMask, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 85, 5);
+            // Remove stuff that's on the outside
+            Core.bitwise_and(colorMask, originalColorMask, colorMask);
 
-            //Mat mask = Mat.ones(colorMaskedFrame.size(), colorMaskedFrame.type());
-            if (colorThresh[idx] != 42) {
-            }
-            //            // erode to prevent object combining
-            float erosion_size = 3f;
-            Mat element = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
-                    new Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-                    new Point( erosion_size, erosion_size ) );
-            Imgproc.erode(colorMaskedFrame, colorMaskedFrame, element);
-            //Imgproc.erode(colorMaskedFrame, colorMaskedFrame, element);
-            //Imgproc.dilate(colorMaskedFrame, colorMaskedFrame, element);
-
-            colorMask = colorMaskedFrame;
+            // Basic erode to get rid of junk
+            float basicErodeSize = 1f;
+            Mat basicErodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
+                    new Size( 2*basicErodeSize + 1, 2*basicErodeSize+1 ),
+                    new Point( basicErodeSize, basicErodeSize ) );
+            Imgproc.erode(colorMask, colorMask, basicErodeElement);
+            Imgproc.erode(colorMask, colorMask, basicErodeElement);
+            //Imgproc.dilate(colorMask, colorMask, basicErodeElement);
 
             if (color == "Yeellow"){
                 return colorMask;
             }
+            List<MatOfPoint> finalContours = new ArrayList<>();
 
 
-//            SimpleBlobDetector detector = SimpleBlobDetector.create(params);
-//            MatOfKeyPoint keyPoints = new MatOfKeyPoint();
-//            detector.detect(colorMask, keyPoints);
-//            List<MatOfPoint> contours = detector.getBlobContours();
-            List<MatOfPoint> contours = new ArrayList<>();
+            // Find initial contours
+            List<MatOfPoint> initialContours = new ArrayList<>();
             Mat hierarchy = new Mat();
-            Imgproc.cvtColor(colorMaskedFrame, colorMaskedFrame, Imgproc.COLOR_BGR2GRAY);
-            Imgproc.findContours(colorMask, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_TC89_L1);
+            Imgproc.findContours(colorMask, initialContours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
 
-            for (MatOfPoint blob : contours){
+            // Iterate through initial contours
+            int contourIdx = 0;
+            for (MatOfPoint blob : initialContours){
+                Mat contourMask = Mat.zeros(colorMask.size(), colorMask.type());
+                Imgproc.drawContours(contourMask, initialContours, contourIdx, new Scalar(255,255,255),-1);
+                //Imgproc.cvtColor(contourMask, contourMask, Imgproc.COLOR_BGR2GRAY); // Convert Mask to AND it
+                double contourArea = Imgproc.contourArea(blob);
+//                MatOfInt hull = new MatOfInt();
+//                Imgproc.convexHull(blob, hull);
+//                MatOfInt4 defects = new MatOfInt4();
+//                Imgproc.convexityDefects(blob, hull, defects);
+
+
+                // filter out junk
+                if (contourArea < 50) {
+                }
+                // If the contour is above the erode threshold, erode it and scan for more blob children
+                else if (contourArea > erodeThreshold){
+
+                    float selectiveErodeSize = 10f;
+                    if (contourArea < 5000){
+                        selectiveErodeSize = 2f;
+                    }
+                    else if (contourArea < 6000){
+                        selectiveErodeSize = 3f;
+                    }
+                    else if (contourArea < 7000){
+                        selectiveErodeSize = 4f;
+                    }
+                    Mat selectiveErodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
+                            new Size( 2*selectiveErodeSize + 1, 2*selectiveErodeSize+1 ),
+                            new Point( selectiveErodeSize, selectiveErodeSize ) );
+                    Imgproc.erode(contourMask, contourMask, selectiveErodeElement);
+                    //Imgproc.erode(contourMask, contourMask, selectiveErodeElement);
+
+                    List<MatOfPoint> newContours = new ArrayList<>();
+                    Imgproc.findContours(contourMask, newContours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
+
+                    finalContours.addAll(newContours);
+                }else{
+
+                    finalContours.add(blob);
+                }
+
+                contourIdx++;
+            }
+            for (MatOfPoint blob : finalContours) {
+                // Drawing
                 Point[] extents = getContourExtents(blob);
-                Imgproc.rectangle(output, extents[0], extents[1], colorStyles[idx], 1);
-                if (labels){
-                    Imgproc.putText(output, color, new Point(extents[1].x, extents[1].y - 2), 1, 0.5, new Scalar(255,255,255), 1);
+                Imgproc.rectangle(output, extents[0], extents[1], colorStyles[colorIdx], 1);
+                if (labels) {
+                    Imgproc.putText(output, color, new Point(extents[1].x, extents[1].y - 2), 1, 0.5, new Scalar(255, 255, 255), 1);
                 }
             }
-
-            //Features2d.drawKeypoints(debugOutput, keyPoints, debugOutput, colorStyles[idx]);
-            Imgproc.drawContours(debugOutput, contours, -1, colorStyles[idx]);
+            Imgproc.drawContours(debugOutput, finalContours, -1, colorStyles[colorIdx]);
             //outputText = outputText.concat(color + ": " + keyPoints.rows() + " ");
-            idx++;
+
+            colorIdx++;
         }
 
         // Print Debug text

@@ -12,9 +12,9 @@ import java.util.List;
 // TODO: need to fix separate objects combining
 
 public class TestPipeline extends OpenCvPipeline {
-    public final Boolean debugOverlay = true;
+    public final Boolean debugOverlay = false;
     public final Boolean labels = true;
-    public final double erodeThreshold = 4000;
+    public final double erodeThreshold = 3000;
     // Color info
     String[] colorNames = {"Red", "Yellow", "Blue"};
     Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
@@ -58,7 +58,10 @@ public class TestPipeline extends OpenCvPipeline {
             Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_GRAY2BGR); // Convert Mask to AND it
             Core.bitwise_and(frame, colorMask, colorMask);
 
-            ///Imgproc.equalizeHist(colorMaskedFrame, colorMaskedFrame);
+            Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_BGR2GRAY); // Convert Mask to AND it
+            Imgproc.equalizeHist(colorMask, colorMask);
+            Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_GRAY2BGR); // Convert Mask to AND it
+
             ///Imgproc.blur(colorMaskedFrame, colorMaskedFrame, new Size(5,5));
 
             Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_BGR2GRAY); // Get grayscale version
@@ -68,12 +71,12 @@ public class TestPipeline extends OpenCvPipeline {
             Core.bitwise_and(colorMask, originalColorMask, colorMask);
 
             // Basic erode to get rid of junk
-            float basicErodeSize = 1f;
+            float basicErodeSize = 2f;
             Mat basicErodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
                     new Size( 2*basicErodeSize + 1, 2*basicErodeSize+1 ),
                     new Point( basicErodeSize, basicErodeSize ) );
             Imgproc.erode(colorMask, colorMask, basicErodeElement);
-            Imgproc.erode(colorMask, colorMask, basicErodeElement);
+            //Imgproc.erode(colorMask, colorMask, basicErodeElement);
             //Imgproc.dilate(colorMask, colorMask, basicErodeElement);
 
             if (color == "Yeellow"){
@@ -106,21 +109,30 @@ public class TestPipeline extends OpenCvPipeline {
                 // If the contour is above the erode threshold, erode it and scan for more blob children
                 else if (contourArea > erodeThreshold){
 
-                    float selectiveErodeSize = 10f;
-                    if (contourArea < 5000){
-                        selectiveErodeSize = 2f;
+                    float selectiveErodeSize = 0f;
+                    if (contourArea < 6000){
+                        selectiveErodeSize = 1f;
                     }
-                    else if (contourArea < 6000){
-                        selectiveErodeSize = 3f;
+                    else if (contourArea < 8000){
+                        selectiveErodeSize = 1.5f;
                     }
-                    else if (contourArea < 7000){
-                        selectiveErodeSize = 4f;
+                    else if (contourArea < 10000){
+                        selectiveErodeSize = 2.0f;
+                    }
+                    else if (contourArea < 12000){
+                        selectiveErodeSize = 2.5f;
+                    }
+                    else if (contourArea < 14000){
+                        selectiveErodeSize = 3.0f;
+                    }else{
+                        selectiveErodeSize = 3.5f;
                     }
                     Mat selectiveErodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
                             new Size( 2*selectiveErodeSize + 1, 2*selectiveErodeSize+1 ),
                             new Point( selectiveErodeSize, selectiveErodeSize ) );
-                    Imgproc.erode(contourMask, contourMask, selectiveErodeElement);
                     //Imgproc.erode(contourMask, contourMask, selectiveErodeElement);
+                    //Imgproc.erode(contourMask, contourMask, selectiveErodeElement);
+                    Imgproc.dilate(contourMask, contourMask, selectiveErodeElement);
 
                     List<MatOfPoint> newContours = new ArrayList<>();
                     Imgproc.findContours(contourMask, newContours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);

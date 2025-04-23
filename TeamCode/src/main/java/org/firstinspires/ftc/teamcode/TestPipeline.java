@@ -10,12 +10,14 @@ import org.opencv.features2d.SimpleBlobDetector_Params;
 import org.opencv.imgproc.Imgproc;
 import org.openftc.easyopencv.OpenCvPipeline;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 
 // TODO: need to fix separate objects combining
 
 public class TestPipeline extends OpenCvPipeline {
-    public final Boolean debugOverlay = false;
+    public final Boolean debugOverlay = true;
     public final Boolean labels = true;
     // Attempts to correct for object combing by finding the edges of objects and eroding them, but can result in loss of small objects
     public final Boolean objectCombiningMitigation = false;
@@ -24,7 +26,9 @@ public class TestPipeline extends OpenCvPipeline {
     Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
 
     Scalar[] colorMax = {new Scalar(179, 255, 255), new Scalar(110, 255, 255), new Scalar(20, 255, 255)};
-    Scalar[] colorMin = {new Scalar(116, 100, 100), new Scalar(95, 110, 100), new Scalar(0, 0, 0)};
+    Scalar[] colorMin = {new Scalar(116, 100, 100), new Scalar(90, 110, 100), new Scalar(0, 50, 0)}; //110 100 for yellow
+
+    int[] colorThresh = {0, 0, 0};
 
     String outputText = "";
 
@@ -41,7 +45,7 @@ public class TestPipeline extends OpenCvPipeline {
         Imgproc.cvtColor(input, input, Imgproc.COLOR_BGR2RGB);
 
         // Blur it
-        Imgproc.blur(input, input, new Size(2,2));
+        //Imgproc.blur(input, input, new Size(2,2));
         Mat frame = input.clone();
         Mat output = input.clone();
 
@@ -50,10 +54,10 @@ public class TestPipeline extends OpenCvPipeline {
         Imgproc.cvtColor(frame, inputHSV, Imgproc.COLOR_BGR2HSV);
 
         // Filter out everything that isn't very saturated
-        Mat sat = new Mat();
-        Core.inRange(inputHSV, new Scalar(0, 100, 45), new Scalar(179, 255, 255), sat);
-        Imgproc.cvtColor(sat, sat, Imgproc.COLOR_GRAY2BGR); // Convert Mask
-        Core.bitwise_and(frame, sat, frame);
+//        Mat sat = new Mat();
+//        Core.inRange(inputHSV, new Scalar(0, 100, 45), new Scalar(179, 255, 255), sat);
+//        Imgproc.cvtColor(sat, sat, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+//        Core.bitwise_and(frame, sat, frame);
 
         // Create blank output matrix
         Mat debugOutput = Mat.zeros(frame.rows(), frame.cols(), input.type());
@@ -69,6 +73,8 @@ public class TestPipeline extends OpenCvPipeline {
         params.set_maxArea(100000);
         params.set_filterByCircularity(false);
         params.set_filterByConvexity(false);
+//        params.set_minConvexity(0.6f);
+//        params.set_maxConvexity(1.0f);
         params.set_filterByInertia(false);
         params.set_minDistBetweenBlobs(1f);
 
@@ -79,44 +85,65 @@ public class TestPipeline extends OpenCvPipeline {
             Mat colorMask = new Mat();
             Core.inRange(inputHSV, colorMin[idx], colorMax[idx], colorMask);
             Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_GRAY2BGR); // Convert Mask
-            Core.bitwise_and(colorMask, sat, colorMask);
+            //Core.bitwise_and(colorMask, sat, colorMask);
 
-            if (objectCombiningMitigation)
-            {
-                // Create a color masked frame
-                Mat colorMaskedFrame = new Mat();
-                Core.bitwise_and(frame, colorMask, colorMaskedFrame);
-                // Cut out edges of objects using the difference of Gaussian filter
-                Mat DoG = new Mat();
-                Mat subInput3 = new Mat();
-                Imgproc.GaussianBlur(colorMaskedFrame, subInput3, new Size(1, 1), 0);
-                Mat subInput4 = new Mat();
-                Imgproc.GaussianBlur(colorMaskedFrame, subInput4, new Size(3, 3), 0);
-                Core.subtract(subInput3, subInput4, DoG);
+            // Create a color masked frame
+            Mat colorMaskedFrame = new Mat();
+            Core.bitwise_and(frame, colorMask, colorMaskedFrame);
+            ////Imgproc.equalizeHist(colorMaskedFrame, colorMaskedFrame);
+            //Imgproc.blur(colorMaskedFrame, colorMaskedFrame, new Size(5,5));
+            Imgproc.cvtColor(colorMaskedFrame, colorMaskedFrame, Imgproc.COLOR_BGR2GRAY); // Convert Mask
 
-                Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_BGR2GRAY); // Convert Mask
-                Core.inRange(DoG, new Scalar(5, 5, 5), new Scalar(255, 255, 255), DoG);
-                Core.bitwise_not(DoG, DoG);
-                Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_GRAY2BGR); // Convert Mask
-                Core.bitwise_and(DoG, colorMask, colorMask);
-                //
+//            if (objectCombiningMitigation)
+//            {
+//                // Cut out edges of objects using the difference of Gaussian filter
+//                Mat DoG = new Mat();
+//                Mat subInput3 = new Mat();
+//                Imgproc.GaussianBlur(colorMaskedFrame, subInput3, new Size(1, 1), 0);
+//                Mat subInput4 = new Mat();
+//                Imgproc.GaussianBlur(colorMaskedFrame, subInput4, new Size(3, 3), 0);
+//                Core.subtract(subInput3, subInput4, DoG);
+//
+//                Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_BGR2GRAY); // Convert Mask
+//                Core.inRange(DoG, new Scalar(5, 5, 5), new Scalar(255, 255, 255), DoG);
+//                Core.bitwise_not(DoG, DoG);
+//                Imgproc.cvtColor(DoG, DoG, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+//                Core.bitwise_and(DoG, colorMask, colorMask);
+//
+//            }
+            Imgproc.adaptiveThreshold(colorMaskedFrame, colorMaskedFrame, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 85, 15);
+            Imgproc.cvtColor(colorMaskedFrame, colorMaskedFrame, Imgproc.COLOR_GRAY2BGR); // Convert Mask
+            // Remove slime that's on the outside
+            Core.bitwise_and(colorMaskedFrame, colorMask, colorMaskedFrame);
 
-                // erode to prevent object combining
-                float erosion_size = 1f;
-                Mat element = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
-                        new Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-                        new Point( erosion_size, erosion_size ) );
-                Imgproc.erode(colorMask, colorMask, element);
+            //Mat mask = Mat.ones(colorMaskedFrame.size(), colorMaskedFrame.type());
+            if (colorThresh[idx] != 42) {
             }
+            //            // erode to prevent object combining
+            float erosion_size = 3f;
+            Mat element = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
+                    new Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+                    new Point( erosion_size, erosion_size ) );
+            Imgproc.erode(colorMaskedFrame, colorMaskedFrame, element);
+            //Imgproc.erode(colorMaskedFrame, colorMaskedFrame, element);
+            //Imgproc.dilate(colorMaskedFrame, colorMaskedFrame, element);
+
+            colorMask = colorMaskedFrame;
 
             if (color == "Yeellow"){
                 return colorMask;
             }
 
-            SimpleBlobDetector detector = SimpleBlobDetector.create(params);
-            MatOfKeyPoint keyPoints = new MatOfKeyPoint();
-            detector.detect(colorMask, keyPoints);
-            List<MatOfPoint> contours = detector.getBlobContours();
+
+//            SimpleBlobDetector detector = SimpleBlobDetector.create(params);
+//            MatOfKeyPoint keyPoints = new MatOfKeyPoint();
+//            detector.detect(colorMask, keyPoints);
+//            List<MatOfPoint> contours = detector.getBlobContours();
+            List<MatOfPoint> contours = new ArrayList<>();
+            Mat hierarchy = new Mat();
+            Imgproc.cvtColor(colorMaskedFrame, colorMaskedFrame, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.findContours(colorMask, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_TC89_L1);
+
             for (MatOfPoint blob : contours){
                 Point[] extents = getContourExtents(blob);
                 Imgproc.rectangle(output, extents[0], extents[1], colorStyles[idx], 1);
@@ -125,9 +152,9 @@ public class TestPipeline extends OpenCvPipeline {
                 }
             }
 
-            Features2d.drawKeypoints(debugOutput, keyPoints, debugOutput, colorStyles[idx]);
+            //Features2d.drawKeypoints(debugOutput, keyPoints, debugOutput, colorStyles[idx]);
             Imgproc.drawContours(debugOutput, contours, -1, colorStyles[idx]);
-            outputText = outputText.concat(color + ": " + keyPoints.rows() + " ");
+            //outputText = outputText.concat(color + ": " + keyPoints.rows() + " ");
             idx++;
         }
 

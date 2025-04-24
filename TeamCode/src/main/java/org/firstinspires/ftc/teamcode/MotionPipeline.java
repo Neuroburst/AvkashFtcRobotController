@@ -10,9 +10,7 @@ import org.opencv.video.BackgroundSubtractorMOG2;
 import org.openftc.easyopencv.OpenCvPipeline;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 // TODO: get color of objects, clean centroid path
 
@@ -22,11 +20,11 @@ public class MotionPipeline extends OpenCvPipeline {
 
     private List<Point> centroidHist = new ArrayList<Point>();
 
-    String[] colorNames = {"Red", "Yellow", "Blue"};
-    Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
-    // Color Thresholds
-    Scalar[] colorMax = {new Scalar(179, 255, 255), new Scalar(116, 255, 255), new Scalar(20, 255, 255)};
-    Scalar[] colorMin = {new Scalar(116, 50, 50), new Scalar(30, 50, 50), new Scalar(0, 50, 20)};
+//    String[] colorNames = {"Red", "Yellow", "Blue"};
+//    Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
+//    // Color Thresholds
+//    Scalar[] colorMax = {new Scalar(179, 255, 255), new Scalar(110, 255, 255), new Scalar(20, 255, 255)};
+//    Scalar[] colorMin = {new Scalar(116, 100, 100), new Scalar(90, 110, 100), new Scalar(0, 50, 0)};
 
     @Override
     public void init(Mat input) {
@@ -51,14 +49,14 @@ public class MotionPipeline extends OpenCvPipeline {
         Core.bitwise_and(input, mask, maskHSV);
         Imgproc.cvtColor(maskHSV, maskHSV, Imgproc.COLOR_RGB2HSV);
         // Filter out desaturated and dark stuff
-        Core.inRange(maskHSV, new Scalar(0,50,50), new Scalar(255,255,255), mask);
+        Core.inRange(maskHSV, new Scalar(0,90,100), new Scalar(255,255,255), mask);
         Imgproc.blur(mask, mask, new Size(3,3));
 
         //Update colored version
-        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_GRAY2RGB);
-        Core.bitwise_and(input, mask, maskHSV);
-        Imgproc.cvtColor(maskHSV, maskHSV, Imgproc.COLOR_RGB2HSV);
-        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_RGB2GRAY);
+//        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_GRAY2RGB);
+//        Core.bitwise_and(input, mask, maskHSV);
+//        Imgproc.cvtColor(maskHSV, maskHSV, Imgproc.COLOR_RGB2HSV);
+//        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_RGB2GRAY);
 
         // Remove shadows
         //Imgproc.threshold(mask, mask, 200, 255, Imgproc.THRESH_BINARY);
@@ -76,51 +74,28 @@ public class MotionPipeline extends OpenCvPipeline {
 //        Imgproc.erode(mask, mask, erodeElement);
 //        //Imgproc.dilate(mask, mask, erodeElement);
 
-        Map<String, MatOfPoint> contours = new HashMap<>();
+        List<MatOfPoint> allContours = new ArrayList<>();
+        // Detect contours
+        Mat hierarchy = new Mat();
+        Imgproc.findContours(mask, allContours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
+
+
         // Get largest contour as well
         MatOfPoint largestContour = null;
         double largestContourArea = 0f;
+        // Filter contours
+        List<MatOfPoint> contours = new ArrayList<>();
+        for (MatOfPoint contour : allContours) {
+            double contourArea = Imgproc.contourArea(contour);
+            if (contourArea > 100) {
+                contours.add(contour);
 
-        // Individually process each color
-        int colorIdx = 0;
-        for (String color : colorNames) {
-
-
-            Mat maskInColor = new Mat();
-            Core.inRange(maskHSV, colorMin[colorIdx], colorMax[colorIdx], maskInColor);
-
-            if (color == "Yeellow"){
-                return maskInColor;
-            }
-
-            // Detect contours
-            List<MatOfPoint> colorContours = new ArrayList<>();
-            Mat hierarchy = new Mat();
-            Imgproc.findContours(maskInColor, colorContours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
-
-            // Draw contours for testing
-            if (debugOverlay)
-                Imgproc.drawContours(output, colorContours, -1, colorStyles[colorIdx]);
-
-            // Filter contours
-            for (MatOfPoint contour : colorContours) {
-                double contourArea = Imgproc.contourArea(contour);
-                if (contourArea > 100) {
-                    contours.put(color, contour);
-
-                    Rect rect = Imgproc.boundingRect(contour);
-                    Imgproc.rectangle(output, rect, colorStyles[colorIdx]);
-
-                    if (contourArea > largestContourArea) {
-                        largestContour = contour;
-                        largestContourArea = contourArea;
-                    }
+                if (contourArea > largestContourArea) {
+                    largestContour = contour;
+                    largestContourArea = contourArea;
                 }
             }
-
-            colorIdx++;
         }
-
 
         // Plot centroid history with largest contour
         if (largestContour != null) {
@@ -135,10 +110,19 @@ public class MotionPipeline extends OpenCvPipeline {
 
             Imgproc.drawMarker(output, centroid, new Scalar(255, 255, 0));
             Imgproc.polylines(output, poly, false, new Scalar(255, 255, 0));
+
+            // Draw boxes around identified contours
+            Rect rect = Imgproc.boundingRect(largestContour);
+            Imgproc.rectangle(output, rect, new Scalar(255,0,0));
         }else{
             // Clear history if lost
             centroidHist.clear();
         }
+
+        // Draw contours for testing
+        if (debugOverlay)
+            Imgproc.drawContours(output, contours, -1, new Scalar(255,0,0));
+
 
         return output;
     }

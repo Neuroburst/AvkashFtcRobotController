@@ -9,9 +9,7 @@ import org.openftc.easyopencv.OpenCvPipeline;
 import java.util.ArrayList;
 import java.util.List;
 
-// TODO: need to fix separate objects combining
-
-public class TestPipeline extends OpenCvPipeline {
+public class ColorPipeline extends OpenCvPipeline {
     public final Boolean debugOverlay = false;
     public final Boolean labels = true;
     public final double erodeThreshold = 3000;
@@ -37,7 +35,6 @@ public class TestPipeline extends OpenCvPipeline {
         Imgproc.cvtColor(input, input, Imgproc.COLOR_BGR2RGB);
 
         // Create the frame and output
-        //Imgproc.blur(input, input, new Size(2,2));
         Mat frame = input.clone();
         Mat output = input.clone();
         // Create blank debug output matrix
@@ -62,8 +59,6 @@ public class TestPipeline extends OpenCvPipeline {
             Imgproc.equalizeHist(colorMask, colorMask);
             Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_GRAY2BGR); // Convert Mask to AND it
 
-            ///Imgproc.blur(colorMaskedFrame, colorMaskedFrame, new Size(5,5));
-
             Imgproc.cvtColor(colorMask, colorMask, Imgproc.COLOR_BGR2GRAY); // Get grayscale version
             // Cut out darker areas using adaptive threshold
             Imgproc.adaptiveThreshold(colorMask, colorMask, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 85, 5);
@@ -76,12 +71,10 @@ public class TestPipeline extends OpenCvPipeline {
                     new Size( 2*basicErodeSize + 1, 2*basicErodeSize+1 ),
                     new Point( basicErodeSize, basicErodeSize ) );
             Imgproc.erode(colorMask, colorMask, basicErodeElement);
-            //Imgproc.erode(colorMask, colorMask, basicErodeElement);
-            //Imgproc.dilate(colorMask, colorMask, basicErodeElement);
 
-            if (color == "Yeellow"){
-                return colorMask;
-            }
+//            if (color == "Yeellow"){
+//                return colorMask;
+//            }
             List<MatOfPoint> finalContours = new ArrayList<>();
 
 
@@ -95,18 +88,12 @@ public class TestPipeline extends OpenCvPipeline {
             for (MatOfPoint blob : initialContours){
                 Mat contourMask = Mat.zeros(colorMask.size(), colorMask.type());
                 Imgproc.drawContours(contourMask, initialContours, contourIdx, new Scalar(255,255,255),-1);
-                //Imgproc.cvtColor(contourMask, contourMask, Imgproc.COLOR_BGR2GRAY); // Convert Mask to AND it
                 double contourArea = Imgproc.contourArea(blob);
-//                MatOfInt hull = new MatOfInt();
-//                Imgproc.convexHull(blob, hull);
-//                MatOfInt4 defects = new MatOfInt4();
-//                Imgproc.convexityDefects(blob, hull, defects);
-
 
                 // filter out junk
                 if (contourArea < 50) {
                 }
-                // If the contour is above the erode threshold, erode it and scan for more blob children
+                // If the contour is above the erode threshold, erode it and scan for more blob children (selectively erode based on area)
                 else if (contourArea > erodeThreshold){
 
                     float selectiveErodeSize = 0f;
@@ -130,7 +117,6 @@ public class TestPipeline extends OpenCvPipeline {
                     Mat selectiveErodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
                             new Size( 2*selectiveErodeSize + 1, 2*selectiveErodeSize+1 ),
                             new Point( selectiveErodeSize, selectiveErodeSize ) );
-                    //Imgproc.erode(contourMask, contourMask, selectiveErodeElement);
                     //Imgproc.erode(contourMask, contourMask, selectiveErodeElement);
                     Imgproc.dilate(contourMask, contourMask, selectiveErodeElement);
 

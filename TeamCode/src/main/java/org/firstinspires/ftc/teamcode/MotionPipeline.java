@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import org.opencv.imgproc.Moments;
+import org.opencv.video.KalmanFilter;
 import org.opencv.video.Video;
 import org.opencv.core.*;
 import org.opencv.core.Mat;
@@ -9,6 +10,7 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.video.BackgroundSubtractorMOG2;
 import org.openftc.easyopencv.OpenCvPipeline;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,9 +18,15 @@ import java.util.List;
 
 public class MotionPipeline extends OpenCvPipeline {
     public final Boolean debugOverlay = false;
+    public final Boolean showUnsmoothed = false;
+
+    public final int MASize = 5;
     private BackgroundSubtractorMOG2 backSub = Video.createBackgroundSubtractorMOG2();
 
     private ArrayList<Point> centroidHist = new ArrayList<Point>();
+    private ArrayList<Point> centroidHistRaw = new ArrayList<Point>();
+
+    private ArrayList<Point> queue = new ArrayList<>();
 
 //    String[] colorNames = {"Red", "Yellow", "Blue"};
 //    Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
@@ -31,6 +39,8 @@ public class MotionPipeline extends OpenCvPipeline {
         // Reset background subtractor and centroid history
         backSub = Video.createBackgroundSubtractorMOG2();
         centroidHist.clear();
+        centroidHistRaw.clear();
+        queue.clear();
     }
 
     @Override
@@ -80,9 +90,22 @@ public class MotionPipeline extends OpenCvPipeline {
         if (largestContour != null) {
             Moments moments = Imgproc.moments(largestContour);
             Point centroid = new Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
-            centroidHist.add(centroid);
+            queue.add(centroid);
+            centroidHistRaw.add(centroid);
 
-            cleanCentroidHist();
+            if (queue.size() == MASize){
+                Point avg = new Point();
+                for (Point point : queue){
+                    avg.x += point.x;
+                    avg.y += point.y;
+                }
+                avg.x /= MASize;
+                avg.y /= MASize;
+
+                centroidHist.add(avg);
+                queue.remove(0);
+            }
+
 
             // Display centroid
             Imgproc.drawMarker(output, centroid, new Scalar(255, 255, 0));
@@ -94,12 +117,23 @@ public class MotionPipeline extends OpenCvPipeline {
             poly.add(m);
             Imgproc.polylines(output, poly, false, new Scalar(255, 255, 0));
 
+            if (showUnsmoothed){
+                // Display centroid path
+                MatOfPoint mRaw = new MatOfPoint();
+                mRaw.fromList(centroidHistRaw);
+                ArrayList<MatOfPoint> polyRaw = new ArrayList<>();
+                polyRaw.add(mRaw);
+                Imgproc.polylines(output, polyRaw, false, new Scalar(0, 255, 255));
+            }
+
             // Draw boxes around identified contours
             Rect rect = Imgproc.boundingRect(largestContour);
             Imgproc.rectangle(output, rect, new Scalar(255,0,0));
         }else{
             // Clear history if lost
             centroidHist.clear();
+            centroidHistRaw.clear();
+            queue.clear();
         }
 
         // Draw contours for testing
@@ -112,18 +146,41 @@ public class MotionPipeline extends OpenCvPipeline {
     }
 
     public void cleanCentroidHist(){
-        if (centroidHist.size() < 3){
-            return;
-        }
+//        if (centroidHist.size() < 3){
+//            return;
+//        }
+//
+//        int startIdx = centroidHist.size()-3;
+//        int midIdx = centroidHist.size()-2;
+//        int endIdx = centroidHist.size()-1;
+//
+//        Point startPoint = centroidHist.get(startIdx);
+//        Point midPoint = centroidHist.get(midIdx);
+//        Point endPoint = centroidHist.get(endIdx);
+//
+        KalmanFilter kalman = new KalmanFilter(4, 2, 0, CvType.CV_32F);
+        Mat transitionMatrix = new Mat(4, 4, CvType.CV_32F, new Scalar(0));
+        float[] tM = { 1, 0, 1, 0,
+                0, 1, 0, 1,
+                0, 0, 1, 0,
+                0, 0, 0, 1 } ;
+        transitionMatrix.put(0,0,tM);
+        kalman.set_transitionMatrix(transitionMatrix);
 
-        int startIdx = centroidHist.size()-3;
-        int midIdx = centroidHist.size()-2;
-        int endIdx = centroidHist.size()-1;
+        Mat histMat = new Mat(2, centroidHist.size(), CvType.CV_32F);
 
-        Point startPoint = centroidHist.get(startIdx);
-        Point midPoint = centroidHist.get(midIdx);
-        Point endPoint = centroidHist.get(endIdx);
+//        int i = 0;
+//        for (Point p : centroidHist){
+//            histMat.put(i, 0, p.x);
+//            histMat.put(i, 1, p.y);
+//            i++;
+//        }
+        // ERROR
+        Mat corrected = kalman.correct(histMat);
 
+//        for (int idx = 0; idx < centroidHist.size(); idx++){
+//            centroidHist.set(idx, new Point(corrected.get(idx, 0)));
+//        }
         //centroidHist.set(midIdx, new Point(startPoint.x + endPoint.x / 2, startPoint.y + endPoint.y / 2));
     }
 

@@ -14,25 +14,25 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
-// TODO: get color of objects, clean centroid path
-
 public class MotionPipeline extends OpenCvPipeline {
+    // Overlay the contours
     public final Boolean debugOverlay = false;
+    // Whether to show the unsmoothed
     public final Boolean showUnsmoothed = false;
 
+    // The size of the moving average window
     public final int MASize = 5;
+
+    // The background subtractor
     private BackgroundSubtractorMOG2 backSub = Video.createBackgroundSubtractorMOG2();
 
+    // The history of the centroid (smoothed and unsmoothed respectively)
     private ArrayList<Point> centroidHist = new ArrayList<Point>();
     private ArrayList<Point> centroidHistRaw = new ArrayList<Point>();
 
+    // The queue for the moving average
     private ArrayList<Point> queue = new ArrayList<>();
 
-//    String[] colorNames = {"Red", "Yellow", "Blue"};
-//    Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
-//    // Color Thresholds
-//    Scalar[] colorMax = {new Scalar(179, 255, 255), new Scalar(110, 255, 255), new Scalar(20, 255, 255)};
-//    Scalar[] colorMin = {new Scalar(116, 100, 100), new Scalar(90, 110, 100), new Scalar(0, 50, 0)};
 
     @Override
     public void init(Mat input) {
@@ -86,7 +86,7 @@ public class MotionPipeline extends OpenCvPipeline {
             }
         }
 
-        // Plot centroid history with largest contour
+        // Plot centroid history with largest contour using the moving average to smooth it out
         if (largestContour != null) {
             Moments moments = Imgproc.moments(largestContour);
             Point centroid = new Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
@@ -143,45 +143,6 @@ public class MotionPipeline extends OpenCvPipeline {
 
 
         return output;
-    }
-
-    public void cleanCentroidHist(){
-//        if (centroidHist.size() < 3){
-//            return;
-//        }
-//
-//        int startIdx = centroidHist.size()-3;
-//        int midIdx = centroidHist.size()-2;
-//        int endIdx = centroidHist.size()-1;
-//
-//        Point startPoint = centroidHist.get(startIdx);
-//        Point midPoint = centroidHist.get(midIdx);
-//        Point endPoint = centroidHist.get(endIdx);
-//
-        KalmanFilter kalman = new KalmanFilter(4, 2, 0, CvType.CV_32F);
-        Mat transitionMatrix = new Mat(4, 4, CvType.CV_32F, new Scalar(0));
-        float[] tM = { 1, 0, 1, 0,
-                0, 1, 0, 1,
-                0, 0, 1, 0,
-                0, 0, 0, 1 } ;
-        transitionMatrix.put(0,0,tM);
-        kalman.set_transitionMatrix(transitionMatrix);
-
-        Mat histMat = new Mat(2, centroidHist.size(), CvType.CV_32F);
-
-//        int i = 0;
-//        for (Point p : centroidHist){
-//            histMat.put(i, 0, p.x);
-//            histMat.put(i, 1, p.y);
-//            i++;
-//        }
-        // ERROR
-        Mat corrected = kalman.correct(histMat);
-
-//        for (int idx = 0; idx < centroidHist.size(); idx++){
-//            centroidHist.set(idx, new Point(corrected.get(idx, 0)));
-//        }
-        //centroidHist.set(midIdx, new Point(startPoint.x + endPoint.x / 2, startPoint.y + endPoint.y / 2));
     }
 
     @Override

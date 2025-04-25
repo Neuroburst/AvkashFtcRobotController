@@ -10,8 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ColorPipeline extends OpenCvPipeline {
+    // Overlay the contours
     public final Boolean debugOverlay = false;
+
+    // Show the labels of the object colors
     public final Boolean labels = true;
+    // Minimum area of a contour to begin eroding
     public final double erodeThreshold = 3000;
     // Color info
     String[] colorNames = {"Red", "Yellow", "Blue"};
@@ -72,13 +76,10 @@ public class ColorPipeline extends OpenCvPipeline {
                     new Point( basicErodeSize, basicErodeSize ) );
             Imgproc.erode(colorMask, colorMask, basicErodeElement);
 
-//            if (color == "Yeellow"){
-//                return colorMask;
-//            }
+            // The filtered contours
             List<MatOfPoint> finalContours = new ArrayList<>();
 
-
-            // Find initial contours
+            // Find initial contours (unfiltered)
             List<MatOfPoint> initialContours = new ArrayList<>();
             Mat hierarchy = new Mat();
             Imgproc.findContours(colorMask, initialContours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
@@ -131,6 +132,7 @@ public class ColorPipeline extends OpenCvPipeline {
 
                 contourIdx++;
             }
+            // Draw the boxes
             for (MatOfPoint blob : finalContours) {
                 // Drawing
                 Point[] extents = getContourExtents(blob);

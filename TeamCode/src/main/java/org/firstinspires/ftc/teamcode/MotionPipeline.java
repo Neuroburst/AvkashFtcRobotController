@@ -18,7 +18,7 @@ public class MotionPipeline extends OpenCvPipeline {
     public final Boolean debugOverlay = false;
     private BackgroundSubtractorMOG2 backSub = Video.createBackgroundSubtractorMOG2();
 
-    private List<Point> centroidHist = new ArrayList<Point>();
+    private ArrayList<Point> centroidHist = new ArrayList<Point>();
 
 //    String[] colorNames = {"Red", "Yellow", "Blue"};
 //    Scalar[] colorStyles = {new Scalar(255,0,0), new Scalar(255,255,0), new Scalar(0,0,255)};
@@ -52,27 +52,6 @@ public class MotionPipeline extends OpenCvPipeline {
         Core.inRange(maskHSV, new Scalar(0,90,100), new Scalar(255,255,255), mask);
         Imgproc.blur(mask, mask, new Size(3,3));
 
-        //Update colored version
-//        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_GRAY2RGB);
-//        Core.bitwise_and(input, mask, maskHSV);
-//        Imgproc.cvtColor(maskHSV, maskHSV, Imgproc.COLOR_RGB2HSV);
-//        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_RGB2GRAY);
-
-        // Remove shadows
-        //Imgproc.threshold(mask, mask, 200, 255, Imgproc.THRESH_BINARY);
-//        Imgproc.blur(mask, mask, new Size(3,3));
-
-//        // set the kernel
-//        Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(2, 2));
-//        // Apply erosion
-//        Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_OPEN, kernel);
-       // Apply erosion
-//        float erodeSize = 1f;
-//        Mat erodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
-//                new Size( 2*erodeSize + 1, 2*erodeSize+1 ),
-//                new Point( erodeSize, erodeSize ) );
-//        Imgproc.erode(mask, mask, erodeElement);
-//        //Imgproc.dilate(mask, mask, erodeElement);
 
         List<MatOfPoint> allContours = new ArrayList<>();
         // Detect contours
@@ -103,12 +82,16 @@ public class MotionPipeline extends OpenCvPipeline {
             Point centroid = new Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
             centroidHist.add(centroid);
 
+            cleanCentroidHist();
+
+            // Display centroid
+            Imgproc.drawMarker(output, centroid, new Scalar(255, 255, 0));
+
+            // Display centroid path
             MatOfPoint m = new MatOfPoint();
             m.fromList(centroidHist);
             ArrayList<MatOfPoint> poly = new ArrayList<>();
             poly.add(m);
-
-            Imgproc.drawMarker(output, centroid, new Scalar(255, 255, 0));
             Imgproc.polylines(output, poly, false, new Scalar(255, 255, 0));
 
             // Draw boxes around identified contours
@@ -122,9 +105,26 @@ public class MotionPipeline extends OpenCvPipeline {
         // Draw contours for testing
         if (debugOverlay)
             Imgproc.drawContours(output, contours, -1, new Scalar(255,0,0));
+            Imgproc.putText(output, Integer.toString(centroidHist.size()), new Point(0, 50), 0, 1, new Scalar(255,255,255));
 
 
         return output;
+    }
+
+    public void cleanCentroidHist(){
+        if (centroidHist.size() < 3){
+            return;
+        }
+
+        int startIdx = centroidHist.size()-3;
+        int midIdx = centroidHist.size()-2;
+        int endIdx = centroidHist.size()-1;
+
+        Point startPoint = centroidHist.get(startIdx);
+        Point midPoint = centroidHist.get(midIdx);
+        Point endPoint = centroidHist.get(endIdx);
+
+        //centroidHist.set(midIdx, new Point(startPoint.x + endPoint.x / 2, startPoint.y + endPoint.y / 2));
     }
 
     @Override

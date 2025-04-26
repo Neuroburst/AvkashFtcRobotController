@@ -139,7 +139,7 @@ public class MotionPipeline extends OpenCvPipeline {
         // Draw contours for testing
         if (debugOverlay)
             Imgproc.drawContours(output, contours, -1, new Scalar(255,0,0));
-            Imgproc.putText(output, Integer.toString(centroidHist.size()), new Point(0, 50), 0, 1, new Scalar(255,255,255));
+        Imgproc.putText(output, Integer.toString(centroidHist.size()), new Point(0, 50), 0, 1, new Scalar(255,255,255));
 
 
         return output;
